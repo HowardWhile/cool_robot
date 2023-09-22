@@ -9,13 +9,13 @@ rpdo:  # RxPDO
   - index: 0x1601
     channels:
       # Control Word
-      - {index: 0x6040, sub_index: 0, type: uint16, command_interface: control_word, default: 0} 
+      - {index: 0x6040, sub_index: 0, type: uint16, command_interface: control_word, default: 128} 
       # Target Position
       - {index: 0x607a, sub_index: 0, type: int32, command_interface: "position", default: .nan} 
       # Target Velocity
       - {index: 0x60FF, sub_index: 0, type: int32, default: 0} 
       # Target Torque
-      - {index: 0x6071, sub_index: 0, type: int32, default: 0} 
+      - {index: 0x6071, sub_index: 0, type: int16, default: 0} 
       # Mode of Operation
       # - {index: 0x6060, sub_index: 0, type: int8, default: 8} 
 
