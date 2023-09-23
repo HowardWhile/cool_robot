@@ -28,7 +28,6 @@
 #define console_preiod(period, format, ...) \
     RCLCPP_INFO_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), period, format, ##__VA_ARGS__)
 
-
 namespace
 { // utility
 
@@ -99,7 +98,7 @@ namespace cool_robot_controller
         for (const std::string &j : this->params_.joints)
         {
             console("%s", j.c_str());
-            command_interfaces_config.names.push_back(j+"/control_word");
+            command_interfaces_config.names.push_back(j + "/control_word");
         }
 
         return command_interfaces_config;
@@ -113,20 +112,20 @@ namespace cool_robot_controller
         for (const std::string &j : this->params_.joints)
         {
             console("%s", j.c_str());
-            state_interfaces_config.names.push_back(j+"/status_word");
+            state_interfaces_config.names.push_back(j + "/status_word");
         }
 
         return state_interfaces_config;
     }
 
-    controller_interface::CallbackReturn CoolRobotController::on_activate( const rclcpp_lifecycle::State & /*previous_state*/)
+    controller_interface::CallbackReturn CoolRobotController::on_activate(const rclcpp_lifecycle::State & /*previous_state*/)
     {
         console("on_activate()");
 
         return controller_interface::CallbackReturn::SUCCESS;
     }
 
-    controller_interface::CallbackReturn CoolRobotController::on_deactivate( const rclcpp_lifecycle::State & /*previous_state*/)
+    controller_interface::CallbackReturn CoolRobotController::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
     {
         console("on_deactivate()");
 
@@ -141,7 +140,7 @@ namespace cool_robot_controller
             fps_count++;
             static auto last_check_time = rclcpp::Clock().now();
             auto dt = rclcpp::Clock().now() - last_check_time;
-            if(dt.seconds() >= 1.0)
+            if (dt.seconds() >= 1.0)
             {
                 last_check_time = rclcpp::Clock().now();
                 fps = fps_count;
@@ -151,10 +150,54 @@ namespace cool_robot_controller
             console_preiod(1000, "update() fps: %d", fps);
         }
 
+        // std::vector<std::string> interface_names;
+        std::vector<int> control_words;  
+        for (const auto &c : this->command_interfaces_)
+        {
+            // interface_names.push_back(c.get_name());
+            uint16_t value = c.get_value();
+            control_words.push_back(value);
+        }
+        // console("%s", this->Join(", ", interface_names).c_str());
+        // console("control_words: %s", this->Join(", ", control_words).c_str());
+
+
+        std::vector<int> status_words;  
+        for (const auto &s : this->state_interfaces_)
+        {
+            uint16_t value = s.get_value();
+            status_words.push_back(value);
+        }
+        console("status_word: %s", this->Join(", ", status_words).c_str());
+
         return controller_interface::return_type::OK;
     }
 
+    std::string CoolRobotController::Join(std::string separator, std::vector<std::string> values)
+    {
+        std::string result;
+        for (const std::string &word : values)
+        {
+            if (!result.empty())
+            {
+                result += separator;
+            }
+            result += word;
+        }
+        return result;
+    }
+
+    std::string CoolRobotController::Join(std::string separator, std::vector<int> values)
+    {
+        std::vector<std::string> str_valuse;
+        for (const auto &data : values)
+        {
+            str_valuse.push_back(std::to_string(data));
+        }
+        return this->Join(separator, str_valuse);
+    }
 } // namespace cool_robot_controller
+
 
 #include "pluginlib/class_list_macros.hpp"
 

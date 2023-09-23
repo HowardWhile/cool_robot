@@ -106,6 +106,10 @@ private:
   // callback for topic interface
   COOL_ROBOT_CONTROLLER__VISIBILITY_LOCAL
   void reference_callback(const std::shared_ptr<ControllerReferenceMsg> msg);
+
+  std::string Join(std::string separator, std::vector<std::string> values);
+  std::string Join(std::string separator, std::vector<int> values);
+  
 };
 
 }  // namespace cool_robot_controller
