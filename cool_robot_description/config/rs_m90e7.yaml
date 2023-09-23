@@ -3,6 +3,8 @@ vendor_id: 0x000001DD
 product_id: 0x10306086
 assign_activate: 0x0300  # DC Synch register
 auto_fault_reset: false 
+auto_state_transitions: false
+
 sdo:  # sdo data to be transferred at drive startup
   
 rpdo:  # RxPDO

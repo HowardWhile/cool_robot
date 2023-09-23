@@ -147,28 +147,31 @@ namespace cool_robot_controller
                 fps_count = 0;
             }
 
-            console_preiod(1000, "update() fps: %d", fps);
+            // console_preiod(1000, "update() fps: %d", fps);
         }
 
         // std::vector<std::string> interface_names;
-        std::vector<int> control_words;  
+        std::vector<int> control_words;
+        for (size_t idx=  0; idx < this->command_interfaces_.size(); idx++)
+        {
+            this->command_interfaces_[idx].set_value(0x1);  
+        }
+        
         for (const auto &c : this->command_interfaces_)
         {
-            // interface_names.push_back(c.get_name());
             uint16_t value = c.get_value();
             control_words.push_back(value);
         }
         // console("%s", this->Join(", ", interface_names).c_str());
-        // console("control_words: %s", this->Join(", ", control_words).c_str());
+        console_preiod(1000, "control_words: %s", this->Join(", ", control_words).c_str());
 
-
-        std::vector<int> status_words;  
+        std::vector<int> status_words;
         for (const auto &s : this->state_interfaces_)
         {
             uint16_t value = s.get_value();
             status_words.push_back(value);
         }
-        console("status_word: %s", this->Join(", ", status_words).c_str());
+        console_preiod(1000, "status_word: %s", this->Join(", ", status_words).c_str());
 
         return controller_interface::return_type::OK;
     }
@@ -197,7 +200,6 @@ namespace cool_robot_controller
         return this->Join(separator, str_valuse);
     }
 } // namespace cool_robot_controller
-
 
 #include "pluginlib/class_list_macros.hpp"
 

@@ -11,7 +11,7 @@
       <hardware>
         <plugin>ethercat_driver/EthercatDriver</plugin>
         <param name="master_id">0</param>
-        <param name="control_frequency">1000</param>
+        <param name="control_frequency">100</param>
       </hardware>
       <!-- ========================================= -->
       <!-- joint1 -->
