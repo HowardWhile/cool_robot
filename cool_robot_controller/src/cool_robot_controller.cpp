@@ -28,36 +28,6 @@
 #define console_preiod(period, format, ...) \
     RCLCPP_INFO_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), period, format, ##__VA_ARGS__)
 
-namespace
-{ // utility
-
-    // TODO(destogl): remove this when merged upstream
-    // Changed services history QoS to keep all so we don't lose any client service calls
-    static constexpr rmw_qos_profile_t rmw_qos_profile_services_hist_keep_all = {
-        RMW_QOS_POLICY_HISTORY_KEEP_ALL,
-        1, // message queue depth
-        RMW_QOS_POLICY_RELIABILITY_RELIABLE,
-        RMW_QOS_POLICY_DURABILITY_VOLATILE,
-        RMW_QOS_DEADLINE_DEFAULT,
-        RMW_QOS_LIFESPAN_DEFAULT,
-        RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT,
-        RMW_QOS_LIVELINESS_LEASE_DURATION_DEFAULT,
-        false};
-
-    using ControllerReferenceMsg = cool_robot_controller::CoolRobotController::ControllerReferenceMsg;
-
-    // called from RT control loop
-    void reset_controller_reference_msg(
-        std::shared_ptr<ControllerReferenceMsg> &msg, const std::vector<std::string> &joint_names)
-    {
-        msg->joint_names = joint_names;
-        msg->displacements.resize(joint_names.size(), std::numeric_limits<double>::quiet_NaN());
-        msg->velocities.resize(joint_names.size(), std::numeric_limits<double>::quiet_NaN());
-        msg->duration = std::numeric_limits<double>::quiet_NaN();
-    }
-
-} // namespace
-
 namespace cool_robot_controller
 {
     CoolRobotController::CoolRobotController() : controller_interface::ControllerInterface() {}
@@ -78,6 +48,26 @@ namespace cool_robot_controller
             return controller_interface::CallbackReturn::ERROR;
         }
 
+        // --------------------------------------
+        // init publishers
+        // --------------------------------------
+        this->pub_status_words = this->get_node()->create_publisher<std_msgs::msg::UInt16MultiArray>("/status_words", 10);
+        this->pub_control_words_state = this->get_node()->create_publisher<std_msgs::msg::UInt16MultiArray>("/control_words_state", 10);
+        this->last_time_status_words_pub = this->get_node()->now();
+        this->last_time_control_words_state_pub = this->get_node()->now();
+
+        // --------------------------------------
+        // init subscriber
+        // --------------------------------------
+        auto sub_control_word_callback = [this](std_msgs::msg::UInt16::UniquePtr msg) -> void
+        {
+            this->control_word = msg->data;
+            this->control_word_renew = true;
+            console("sub_control_word_callback");
+        };
+        this->sub_control_word = this->get_node()->create_subscription<std_msgs::msg::UInt16>("/control_word", 10, sub_control_word_callback);
+        // --------------------------------------
+
         return controller_interface::CallbackReturn::SUCCESS;
     }
 
@@ -85,6 +75,11 @@ namespace cool_robot_controller
     {
         params_ = param_listener_->get_params();
         console("on_configure()");
+
+        int size = this->params_.joints.size();
+        this->status_words.resize(size);
+        this->control_words_state.resize(size);
+
         console("configure successful");
         return controller_interface::CallbackReturn::SUCCESS;
     }
@@ -97,7 +92,7 @@ namespace cool_robot_controller
 
         for (const std::string &j : this->params_.joints)
         {
-            console("%s", j.c_str());
+            // console("%s", j.c_str());
             command_interfaces_config.names.push_back(j + "/control_word");
         }
 
@@ -111,7 +106,7 @@ namespace cool_robot_controller
         console("state_interface_configuration()");
         for (const std::string &j : this->params_.joints)
         {
-            console("%s", j.c_str());
+            // console("%s", j.c_str());
             state_interfaces_config.names.push_back(j + "/status_word");
         }
 
@@ -134,46 +129,95 @@ namespace cool_robot_controller
 
     controller_interface::return_type CoolRobotController::update(const rclcpp::Time &time, const rclcpp::Duration & /*period*/)
     {
+        // --------------------------------
+        // Renew input
+        // --------------------------------
+        // 更新 status_words
+        for (size_t idx = 0; idx < this->state_interfaces_.size(); idx++)
         {
-            static uint32_t fps_count = 0;
-            static uint32_t fps = 0;
-            fps_count++;
-            static auto last_check_time = rclcpp::Clock().now();
-            auto dt = rclcpp::Clock().now() - last_check_time;
-            if (dt.seconds() >= 1.0)
-            {
-                last_check_time = rclcpp::Clock().now();
-                fps = fps_count;
-                fps_count = 0;
-            }
-
-            // console_preiod(1000, "update() fps: %d", fps);
+            this->status_words[idx] = this->state_interfaces_[idx].get_value();
         }
-
-        // std::vector<std::string> interface_names;
-        std::vector<int> control_words;
-        for (size_t idx=  0; idx < this->command_interfaces_.size(); idx++)
-        {
-            this->command_interfaces_[idx].set_value(0x1);  
-        }
+        // console_preiod(1000, "status_word: %s", this->Join(", ", this->status_words).c_str());
         
-        for (const auto &c : this->command_interfaces_)
+        // 更新 control_words_state
+        for (size_t idx = 0; idx < this->command_interfaces_.size(); idx++)
         {
-            uint16_t value = c.get_value();
-            control_words.push_back(value);
+            this->control_words_state[idx] = this->command_interfaces_[idx].get_value();
         }
-        // console("%s", this->Join(", ", interface_names).c_str());
-        console_preiod(1000, "control_words: %s", this->Join(", ", control_words).c_str());
+        // console_preiod(1000, "control_words_state: %s", this->Join(", ", this->control_words_state).c_str());
 
-        std::vector<int> status_words;
-        for (const auto &s : this->state_interfaces_)
+        // --------------------------------
+        // Logic control
+        // --------------------------------
+        // 有變化就發出topic
+        bool enable_pub_status_words = false;
+        if (this->hasVectorChanged(this->last_status_words, this->status_words) == true)
         {
-            uint16_t value = s.get_value();
-            status_words.push_back(value);
+            this->last_status_words = this->status_words;
+            enable_pub_status_words = true;
         }
-        console_preiod(1000, "status_word: %s", this->Join(", ", status_words).c_str());
 
+        // 有變化就發出topic
+        bool enable_pub_control_words_state = false;
+        if (this->hasVectorChanged(this->last_control_words_state, this->control_words_state) == true)
+        {
+            this->last_control_words_state = this->control_words_state;
+            enable_pub_control_words_state = true;
+        }
+
+        // 沒有變化一段時間也發出topic
+        if ((this->get_node()->now() - this->last_time_status_words_pub).seconds() > params_.topic_pub_interval)
+        {
+            this->last_time_status_words_pub = this->get_node()->now();
+            enable_pub_status_words = true;
+        }
+        if ((this->get_node()->now() - this->last_time_control_words_state_pub).seconds() > params_.topic_pub_interval)
+        {
+            this->last_time_control_words_state_pub = this->get_node()->now();
+            enable_pub_control_words_state = true;
+        }
+
+        //
+
+        // --------------------------------
+        // Update output
+        // --------------------------------
+        if (this->control_word_renew == true)
+        {
+            console("control_word_renew: %d (0x%X)", this->control_word, this->control_word);
+
+            this->control_word_renew = false;
+            for (size_t idx = 0; idx < this->command_interfaces_.size(); idx++)
+            {
+                this->command_interfaces_[idx].set_value(this->control_word);
+            }
+        }
+
+        if (enable_pub_status_words)
+        {
+            auto msg = std::make_shared<std_msgs::msg::UInt16MultiArray>();
+            msg->data = this->status_words;
+
+            this->pub_status_words->publish(*msg);
+            this->last_time_status_words_pub = this->get_node()->now();
+
+            console("pub status_words: %s", this->Join(", ", this->status_words).c_str());
+
+        }
+
+        if (enable_pub_control_words_state)
+        {
+            auto msg = std::make_shared<std_msgs::msg::UInt16MultiArray>();
+            msg->data = this->control_words_state;
+
+            this->pub_control_words_state->publish(*msg);
+            this->last_time_control_words_state_pub = this->get_node()->now();
+            console("pub control_words_state: %s", this->Join(", ", this->control_words_state).c_str());
+        }
+
+        // ----------------------------------
         return controller_interface::return_type::OK;
+        // ----------------------------------
     }
 
     std::string CoolRobotController::Join(std::string separator, std::vector<std::string> values)
@@ -199,6 +243,22 @@ namespace cool_robot_controller
         }
         return this->Join(separator, str_valuse);
     }
+
+    std::string CoolRobotController::Join(std::string separator, std::vector<uint16_t> values)
+    {
+        std::vector<std::string> str_valuse;
+        for (const auto &data : values)
+        {
+            str_valuse.push_back(std::to_string(data));
+        }
+        return this->Join(separator, str_valuse);
+    }
+
+    bool CoolRobotController::hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current)
+    {
+        return previous != current;
+    }
+
 } // namespace cool_robot_controller
 
 #include "pluginlib/class_list_macros.hpp"

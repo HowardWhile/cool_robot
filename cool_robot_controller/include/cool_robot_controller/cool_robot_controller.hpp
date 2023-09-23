@@ -28,90 +28,95 @@
 #include "realtime_tools/realtime_buffer.h"
 #include "realtime_tools/realtime_publisher.h"
 #include "std_srvs/srv/set_bool.hpp"
-
-// TODO(anyone): Replace with controller specific messages
-#include "control_msgs/msg/joint_controller_state.hpp"
-#include "control_msgs/msg/joint_jog.hpp"
+#include "std_msgs/msg/u_int16_multi_array.hpp"
+#include "std_msgs/msg/u_int16.hpp"
 
 namespace cool_robot_controller
 {
-// name constants for state interfaces
-static constexpr size_t STATE_MY_ITFS = 0;
+    // name constants for state interfaces
+    static constexpr size_t STATE_MY_ITFS = 0;
 
-// name constants for command interfaces
-static constexpr size_t CMD_MY_ITFS = 0;
+    // name constants for command interfaces
+    static constexpr size_t CMD_MY_ITFS = 0;
 
-// TODO(anyone: example setup for control mode (usually you will use some enums defined in messages)
-enum class control_mode_type : std::uint8_t
-{
-  FAST = 0,
-  SLOW = 1,
-};
+    // TODO(anyone: example setup for control mode (usually you will use some enums defined in messages)
+    enum class control_mode_type : std::uint8_t
+    {
+        FAST = 0,
+        SLOW = 1,
+    };
 
-class CoolRobotController : public controller_interface::ControllerInterface
-{
-public:
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  CoolRobotController();
+    class CoolRobotController : public controller_interface::ControllerInterface
+    {
+    public:
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        CoolRobotController();
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::CallbackReturn on_init() override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::CallbackReturn on_init() override;
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::InterfaceConfiguration command_interface_configuration() const override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::InterfaceConfiguration command_interface_configuration() const override;
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::InterfaceConfiguration state_interface_configuration() const override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::InterfaceConfiguration state_interface_configuration() const override;
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::CallbackReturn on_configure(
-    const rclcpp_lifecycle::State & previous_state) override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::CallbackReturn on_configure(
+            const rclcpp_lifecycle::State &previous_state) override;
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::CallbackReturn on_activate(
-    const rclcpp_lifecycle::State & previous_state) override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::CallbackReturn on_activate(
+            const rclcpp_lifecycle::State &previous_state) override;
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::CallbackReturn on_deactivate(
-    const rclcpp_lifecycle::State & previous_state) override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::CallbackReturn on_deactivate(
+            const rclcpp_lifecycle::State &previous_state) override;
 
-  COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
-  controller_interface::return_type update(
-    const rclcpp::Time & time, const rclcpp::Duration & period) override;
+        COOL_ROBOT_CONTROLLER__VISIBILITY_PUBLIC
+        controller_interface::return_type update(
+            const rclcpp::Time &time, const rclcpp::Duration &period) override;
 
-  // TODO(anyone): replace the state and command message types
-  using ControllerReferenceMsg = control_msgs::msg::JointJog;
-  using ControllerModeSrvType = std_srvs::srv::SetBool;
-  using ControllerStateMsg = control_msgs::msg::JointControllerState;
+        // TODO(anyone): replace the state and command message types
+        using ControllerModeSrvType = std_srvs::srv::SetBool;
 
-protected:
-  std::shared_ptr<cool_robot_controller::ParamListener> param_listener_;
-  cool_robot_controller::Params params_;
+    protected:
+        std::shared_ptr<cool_robot_controller::ParamListener> param_listener_;
+        cool_robot_controller::Params params_;
 
-  std::vector<std::string> state_joints_;
+        // Command subscribers and Controller State publisher
+        rclcpp::Service<ControllerModeSrvType>::SharedPtr set_slow_control_mode_service_;
+        realtime_tools::RealtimeBuffer<control_mode_type> control_mode_;
 
-  // Command subscribers and Controller State publisher
-  rclcpp::Subscription<ControllerReferenceMsg>::SharedPtr ref_subscriber_ = nullptr;
-  realtime_tools::RealtimeBuffer<std::shared_ptr<ControllerReferenceMsg>> input_ref_;
+        // publishers
+        rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_status_words;
+        rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_control_words_state;
 
-  rclcpp::Service<ControllerModeSrvType>::SharedPtr set_slow_control_mode_service_;
-  realtime_tools::RealtimeBuffer<control_mode_type> control_mode_;
+        // subscribers
+        rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr sub_control_word;
 
-  using ControllerStatePublisher = realtime_tools::RealtimePublisher<ControllerStateMsg>;
+    private:
+        
+        std::vector<uint16_t> status_words;
+        std::vector<uint16_t> last_status_words;
+        rclcpp::Time last_time_status_words_pub;
 
-  rclcpp::Publisher<ControllerStateMsg>::SharedPtr s_publisher_;
-  std::unique_ptr<ControllerStatePublisher> state_publisher_;
+        std::vector<uint16_t> control_words_state;
+        std::vector<uint16_t> last_control_words_state;
+        rclcpp::Time last_time_control_words_state_pub;
 
-private:
-  // callback for topic interface
-  COOL_ROBOT_CONTROLLER__VISIBILITY_LOCAL
-  void reference_callback(const std::shared_ptr<ControllerReferenceMsg> msg);
+        uint16_t control_word; // 
+        bool control_word_renew = false;
 
-  std::string Join(std::string separator, std::vector<std::string> values);
-  std::string Join(std::string separator, std::vector<int> values);
-  
-};
+        // 為每個項目或成員之間加入指定的分隔符號
+        std::string Join(std::string separator, std::vector<std::string> values);
+        std::string Join(std::string separator, std::vector<int> values);
+        std::string Join(std::string separator, std::vector<uint16_t> values);
 
-}  // namespace cool_robot_controller
+        // 函數用於檢查向量是否有變化
+        bool hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current);
+    };
 
-#endif  // COOL_ROBOT_CONTROLLER__COOL_ROBOT_CONTROLLER_HPP_
+} // namespace cool_robot_controller
+
+#endif // COOL_ROBOT_CONTROLLER__COOL_ROBOT_CONTROLLER_HPP_

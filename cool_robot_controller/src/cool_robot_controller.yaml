@@ -1,4 +1,10 @@
 cool_robot_controller:
+  topic_pub_interval: {
+    type: double,
+    default_value: 5.0,
+    # description: "status word 與 control word 沒有變化時, 隔一段時間(單位:秒)發出topic",
+    description: "When the status word and control word remain unchanged, a topic is published at regular intervals (unit: seconds)."
+  }
   joints: {
     type: string_array,
     default_value: [],
