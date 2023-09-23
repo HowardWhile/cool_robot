@@ -67,6 +67,11 @@ namespace cool_robot_controller
         };
         this->sub_control_word = this->get_node()->create_subscription<std_msgs::msg::UInt16>("/control_word", 10, sub_control_word_callback);
         // --------------------------------------
+        // init service
+        // --------------------------------------
+        this->srv_servo = this->get_node()->create_service<std_srvs::srv::SetBool>(
+            "/servo",
+            std::bind(&CoolRobotController::srv_servo_callback, this, std::placeholders::_1, std::placeholders::_2));
 
         return controller_interface::CallbackReturn::SUCCESS;
     }
@@ -138,7 +143,7 @@ namespace cool_robot_controller
             this->status_words[idx] = this->state_interfaces_[idx].get_value();
         }
         // console_preiod(1000, "status_word: %s", this->Join(", ", this->status_words).c_str());
-        
+
         // 更新 control_words_state
         for (size_t idx = 0; idx < this->command_interfaces_.size(); idx++)
         {
@@ -177,6 +182,20 @@ namespace cool_robot_controller
             enable_pub_control_words_state = true;
         }
 
+        if (this->request_servo_on)
+        {
+            if (servo_on_work() == 0)
+            {
+                request_servo_on = false;
+            }
+        }
+
+        if(this->request_servo_off)
+        {
+            request_servo_off = false;
+
+        }
+
         //
 
         // --------------------------------
@@ -202,7 +221,6 @@ namespace cool_robot_controller
             this->last_time_status_words_pub = this->get_node()->now();
 
             console("pub status_words: %s", this->Join(", ", this->status_words).c_str());
-
         }
 
         if (enable_pub_control_words_state)
@@ -220,6 +238,100 @@ namespace cool_robot_controller
         // ----------------------------------
     }
 
+    // --------------------------------------------------------------------
+    // service callback
+    // --------------------------------------------------------------------
+    void CoolRobotController::srv_servo_callback(
+        const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+        const std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+    {
+        console("srv_servo_callback request: %d", request->data);
+
+        if(request->data == true)
+        {
+            this->request_servo_on = true;
+            while (true)
+            {
+                rclcpp::sleep_for(std::chrono::milliseconds(50));
+
+                if(this->request_servo_on == false)
+                {
+                    response->success = true;
+                    response->message = "Servo on processed.";    
+                    break;
+                }
+            }        
+        }
+        else
+        {
+            this->request_servo_off = true;
+            while (true)
+            {
+                rclcpp::sleep_for(std::chrono::milliseconds(50));
+
+
+                if(this->request_servo_off == false)
+                {
+                    response->success = true;
+                    response->message = "Servo off processed.";    
+                }
+            }
+        }
+    }
+    // --------------------------------------------------------------------
+    int CoolRobotController::servo_on_work()
+    {
+        bool ctrl_word[16] = {0};
+        switch (servo_on_step++)
+        {
+
+        // 故障復位
+        case 0:
+            ctrl_word[7] = false;
+            break;
+        case 1:
+            ctrl_word[7] = true;
+            break;
+        case 2:
+            ctrl_word[7] = false;
+            break;
+
+        // ref: delta ASDA-A3.pdf 使驅動器的狀態機進入準備狀態
+        case 3: // 關閉
+            ctrl_word[0] = false;
+            ctrl_word[1] = true;
+            ctrl_word[2] = true;
+            ctrl_word[3] = false;
+            ctrl_word[4] = false;
+            break;
+
+        case 4: // 準備使能
+            ctrl_word[0] = true;
+            ctrl_word[1] = true;
+            ctrl_word[2] = true;
+            ctrl_word[3] = false;
+            ctrl_word[4] = false;
+            break;
+
+        case 5: // 始能
+            ctrl_word[0] = true;
+            ctrl_word[1] = true;
+            ctrl_word[2] = true;
+            ctrl_word[3] = true;
+            ctrl_word[4] = false;
+            break;
+
+        default:
+            return 0;
+        }
+
+        this->control_word = this->bool2short(ctrl_word);
+        this->control_word_renew = true;
+
+        return servo_on_step;
+    }
+
+    // --------------------------------------------------------------------
     std::string CoolRobotController::Join(std::string separator, std::vector<std::string> values)
     {
         std::string result;
@@ -257,6 +369,16 @@ namespace cool_robot_controller
     bool CoolRobotController::hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current)
     {
         return previous != current;
+    }
+
+    short CoolRobotController::bool2short(const bool bool16[16])
+    {
+        uint16_t r_val = 0;
+        for (int i = 0; i < 16; ++i)
+        {
+            r_val |= (bool16[i] ? 1 : 0) << i;
+        }
+        return 0;
     }
 
 } // namespace cool_robot_controller

@@ -95,8 +95,13 @@ namespace cool_robot_controller
         // subscribers
         rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr sub_control_word;
 
+        // services
+        rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_servo;
+        void srv_servo_callback(
+            const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+            const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
     private:
-        
         std::vector<uint16_t> status_words;
         std::vector<uint16_t> last_status_words;
         rclcpp::Time last_time_status_words_pub;
@@ -105,8 +110,15 @@ namespace cool_robot_controller
         std::vector<uint16_t> last_control_words_state;
         rclcpp::Time last_time_control_words_state_pub;
 
-        uint16_t control_word; // 
+        uint16_t control_word; //
         bool control_word_renew = false;
+
+        // servo control
+        bool request_servo_off = false;
+        bool request_servo_on = false;
+        int servo_on_step = 0;
+        int servo_on_work();
+
 
         // 為每個項目或成員之間加入指定的分隔符號
         std::string Join(std::string separator, std::vector<std::string> values);
@@ -115,6 +127,9 @@ namespace cool_robot_controller
 
         // 函數用於檢查向量是否有變化
         bool hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current);
+
+        // 型態轉換
+        short bool2short(const bool bool16[16]);
     };
 
 } // namespace cool_robot_controller
