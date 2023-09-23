@@ -22,240 +22,141 @@
 
 #include "controller_interface/helpers.hpp"
 
+#define console(format, ...) \
+    RCLCPP_INFO(get_node()->get_logger(), format, ##__VA_ARGS__)
+
+#define console_preiod(period, format, ...) \
+    RCLCPP_INFO_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), period, format, ##__VA_ARGS__)
+
+
 namespace
-{  // utility
+{ // utility
 
-// TODO(destogl): remove this when merged upstream
-// Changed services history QoS to keep all so we don't lose any client service calls
-static constexpr rmw_qos_profile_t rmw_qos_profile_services_hist_keep_all = {
-  RMW_QOS_POLICY_HISTORY_KEEP_ALL,
-  1,  // message queue depth
-  RMW_QOS_POLICY_RELIABILITY_RELIABLE,
-  RMW_QOS_POLICY_DURABILITY_VOLATILE,
-  RMW_QOS_DEADLINE_DEFAULT,
-  RMW_QOS_LIFESPAN_DEFAULT,
-  RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT,
-  RMW_QOS_LIVELINESS_LEASE_DURATION_DEFAULT,
-  false};
+    // TODO(destogl): remove this when merged upstream
+    // Changed services history QoS to keep all so we don't lose any client service calls
+    static constexpr rmw_qos_profile_t rmw_qos_profile_services_hist_keep_all = {
+        RMW_QOS_POLICY_HISTORY_KEEP_ALL,
+        1, // message queue depth
+        RMW_QOS_POLICY_RELIABILITY_RELIABLE,
+        RMW_QOS_POLICY_DURABILITY_VOLATILE,
+        RMW_QOS_DEADLINE_DEFAULT,
+        RMW_QOS_LIFESPAN_DEFAULT,
+        RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT,
+        RMW_QOS_LIVELINESS_LEASE_DURATION_DEFAULT,
+        false};
 
-using ControllerReferenceMsg = cool_robot_controller::CoolRobotController::ControllerReferenceMsg;
+    using ControllerReferenceMsg = cool_robot_controller::CoolRobotController::ControllerReferenceMsg;
 
-// called from RT control loop
-void reset_controller_reference_msg(
-  std::shared_ptr<ControllerReferenceMsg> & msg, const std::vector<std::string> & joint_names)
-{
-  msg->joint_names = joint_names;
-  msg->displacements.resize(joint_names.size(), std::numeric_limits<double>::quiet_NaN());
-  msg->velocities.resize(joint_names.size(), std::numeric_limits<double>::quiet_NaN());
-  msg->duration = std::numeric_limits<double>::quiet_NaN();
-}
+    // called from RT control loop
+    void reset_controller_reference_msg(
+        std::shared_ptr<ControllerReferenceMsg> &msg, const std::vector<std::string> &joint_names)
+    {
+        msg->joint_names = joint_names;
+        msg->displacements.resize(joint_names.size(), std::numeric_limits<double>::quiet_NaN());
+        msg->velocities.resize(joint_names.size(), std::numeric_limits<double>::quiet_NaN());
+        msg->duration = std::numeric_limits<double>::quiet_NaN();
+    }
 
-}  // namespace
+} // namespace
 
 namespace cool_robot_controller
 {
-CoolRobotController::CoolRobotController() : controller_interface::ControllerInterface() {}
+    CoolRobotController::CoolRobotController() : controller_interface::ControllerInterface() {}
 
-controller_interface::CallbackReturn CoolRobotController::on_init()
-{
-  control_mode_.initRT(control_mode_type::FAST);
-
-  try
-  {
-    param_listener_ = std::make_shared<cool_robot_controller::ParamListener>(get_node());
-  }
-  catch (const std::exception & e)
-  {
-    fprintf(stderr, "Exception thrown during controller's init with message: %s \n", e.what());
-    return controller_interface::CallbackReturn::ERROR;
-  }
-
-  return controller_interface::CallbackReturn::SUCCESS;
-}
-
-controller_interface::CallbackReturn CoolRobotController::on_configure(
-  const rclcpp_lifecycle::State & /*previous_state*/)
-{
-  params_ = param_listener_->get_params();
-
-  if (!params_.state_joints.empty())
-  {
-    state_joints_ = params_.state_joints;
-  }
-  else
-  {
-    state_joints_ = params_.joints;
-  }
-
-  if (params_.joints.size() != state_joints_.size())
-  {
-    RCLCPP_FATAL(
-      get_node()->get_logger(),
-      "Size of 'joints' (%zu) and 'state_joints' (%zu) parameters has to be the same!",
-      params_.joints.size(), state_joints_.size());
-    return CallbackReturn::FAILURE;
-  }
-
-  // topics QoS
-  auto subscribers_qos = rclcpp::SystemDefaultsQoS();
-  subscribers_qos.keep_last(1);
-  subscribers_qos.best_effort();
-
-  // Reference Subscriber
-  ref_subscriber_ = get_node()->create_subscription<ControllerReferenceMsg>(
-    "~/reference", subscribers_qos,
-    std::bind(&CoolRobotController::reference_callback, this, std::placeholders::_1));
-
-  std::shared_ptr<ControllerReferenceMsg> msg = std::make_shared<ControllerReferenceMsg>();
-  reset_controller_reference_msg(msg, params_.joints);
-  input_ref_.writeFromNonRT(msg);
-
-  auto set_slow_mode_service_callback =
-    [&](
-      const std::shared_ptr<ControllerModeSrvType::Request> request,
-      std::shared_ptr<ControllerModeSrvType::Response> response)
-  {
-    if (request->data)
+    controller_interface::CallbackReturn CoolRobotController::on_init()
     {
-      control_mode_.writeFromNonRT(control_mode_type::SLOW);
+        console("on_init()");
+
+        control_mode_.initRT(control_mode_type::FAST);
+
+        try
+        {
+            param_listener_ = std::make_shared<cool_robot_controller::ParamListener>(get_node());
+        }
+        catch (const std::exception &e)
+        {
+            fprintf(stderr, "Exception thrown during controller's init with message: %s \n", e.what());
+            return controller_interface::CallbackReturn::ERROR;
+        }
+
+        return controller_interface::CallbackReturn::SUCCESS;
     }
-    else
+
+    controller_interface::CallbackReturn CoolRobotController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/)
     {
-      control_mode_.writeFromNonRT(control_mode_type::FAST);
+        params_ = param_listener_->get_params();
+        console("on_configure()");
+        console("configure successful");
+        return controller_interface::CallbackReturn::SUCCESS;
     }
-    response->success = true;
-  };
 
-  set_slow_control_mode_service_ = get_node()->create_service<ControllerModeSrvType>(
-    "~/set_slow_control_mode", set_slow_mode_service_callback,
-    rmw_qos_profile_services_hist_keep_all);
-
-  try
-  {
-    // State publisher
-    s_publisher_ =
-      get_node()->create_publisher<ControllerStateMsg>("~/state", rclcpp::SystemDefaultsQoS());
-    state_publisher_ = std::make_unique<ControllerStatePublisher>(s_publisher_);
-  }
-  catch (const std::exception & e)
-  {
-    fprintf(
-      stderr, "Exception thrown during publisher creation at configure stage with message : %s \n",
-      e.what());
-    return controller_interface::CallbackReturn::ERROR;
-  }
-
-  // TODO(anyone): Reserve memory in state publisher depending on the message type
-  state_publisher_->lock();
-  state_publisher_->msg_.header.frame_id = params_.joints[0];
-  state_publisher_->unlock();
-
-  RCLCPP_INFO(get_node()->get_logger(), "configure successful");
-  return controller_interface::CallbackReturn::SUCCESS;
-}
-
-void CoolRobotController::reference_callback(const std::shared_ptr<ControllerReferenceMsg> msg)
-{
-  if (msg->joint_names.size() == params_.joints.size())
-  {
-    input_ref_.writeFromNonRT(msg);
-  }
-  else
-  {
-    RCLCPP_ERROR(
-      get_node()->get_logger(),
-      "Received %zu , but expected %zu joints in command. Ignoring message.",
-      msg->joint_names.size(), params_.joints.size());
-  }
-}
-
-controller_interface::InterfaceConfiguration CoolRobotController::command_interface_configuration() const
-{
-  controller_interface::InterfaceConfiguration command_interfaces_config;
-  command_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-
-  command_interfaces_config.names.reserve(params_.joints.size());
-  for (const auto & joint : params_.joints)
-  {
-    command_interfaces_config.names.push_back(joint + "/" + params_.interface_name);
-  }
-
-  return command_interfaces_config;
-}
-
-controller_interface::InterfaceConfiguration CoolRobotController::state_interface_configuration() const
-{
-  controller_interface::InterfaceConfiguration state_interfaces_config;
-  state_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-
-  state_interfaces_config.names.reserve(state_joints_.size());
-  for (const auto & joint : state_joints_)
-  {
-    state_interfaces_config.names.push_back(joint + "/" + params_.interface_name);
-  }
-
-  return state_interfaces_config;
-}
-
-controller_interface::CallbackReturn CoolRobotController::on_activate(
-  const rclcpp_lifecycle::State & /*previous_state*/)
-{
-  // TODO(anyone): if you have to manage multiple interfaces that need to be sorted check
-  // `on_activate` method in `JointTrajectoryController` for examplary use of
-  // `controller_interface::get_ordered_interfaces` helper function
-
-  // Set default value in command
-  reset_controller_reference_msg(*(input_ref_.readFromRT)(), params_.joints);
-
-  return controller_interface::CallbackReturn::SUCCESS;
-}
-
-controller_interface::CallbackReturn CoolRobotController::on_deactivate(
-  const rclcpp_lifecycle::State & /*previous_state*/)
-{
-  // TODO(anyone): depending on number of interfaces, use definitions, e.g., `CMD_MY_ITFS`,
-  // instead of a loop
-  for (size_t i = 0; i < command_interfaces_.size(); ++i)
-  {
-    command_interfaces_[i].set_value(std::numeric_limits<double>::quiet_NaN());
-  }
-  return controller_interface::CallbackReturn::SUCCESS;
-}
-
-controller_interface::return_type CoolRobotController::update(
-  const rclcpp::Time & time, const rclcpp::Duration & /*period*/)
-{
-  auto current_ref = input_ref_.readFromRT();
-
-  // TODO(anyone): depending on number of interfaces, use definitions, e.g., `CMD_MY_ITFS`,
-  // instead of a loop
-  for (size_t i = 0; i < command_interfaces_.size(); ++i)
-  {
-    if (!std::isnan((*current_ref)->displacements[i]))
+    controller_interface::InterfaceConfiguration CoolRobotController::command_interface_configuration() const
     {
-      if (*(control_mode_.readFromRT()) == control_mode_type::SLOW)
-      {
-        (*current_ref)->displacements[i] /= 2;
-      }
-      command_interfaces_[i].set_value((*current_ref)->displacements[i]);
+        controller_interface::InterfaceConfiguration command_interfaces_config;
+        command_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
+        console("command_interface_configuration()");
 
-      (*current_ref)->displacements[i] = std::numeric_limits<double>::quiet_NaN();
+        for (const std::string &j : this->params_.joints)
+        {
+            console("%s", j.c_str());
+            command_interfaces_config.names.push_back(j+"/control_word");
+        }
+
+        return command_interfaces_config;
     }
-  }
 
-  if (state_publisher_ && state_publisher_->trylock())
-  {
-    state_publisher_->msg_.header.stamp = time;
-    state_publisher_->msg_.set_point = command_interfaces_[CMD_MY_ITFS].get_value();
-    state_publisher_->unlockAndPublish();
-  }
+    controller_interface::InterfaceConfiguration CoolRobotController::state_interface_configuration() const
+    {
+        controller_interface::InterfaceConfiguration state_interfaces_config;
+        state_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
+        console("state_interface_configuration()");
+        for (const std::string &j : this->params_.joints)
+        {
+            console("%s", j.c_str());
+            state_interfaces_config.names.push_back(j+"/status_word");
+        }
 
-  return controller_interface::return_type::OK;
-}
+        return state_interfaces_config;
+    }
 
-}  // namespace cool_robot_controller
+    controller_interface::CallbackReturn CoolRobotController::on_activate( const rclcpp_lifecycle::State & /*previous_state*/)
+    {
+        console("on_activate()");
+
+        return controller_interface::CallbackReturn::SUCCESS;
+    }
+
+    controller_interface::CallbackReturn CoolRobotController::on_deactivate( const rclcpp_lifecycle::State & /*previous_state*/)
+    {
+        console("on_deactivate()");
+
+        return controller_interface::CallbackReturn::SUCCESS;
+    }
+
+    controller_interface::return_type CoolRobotController::update(const rclcpp::Time &time, const rclcpp::Duration & /*period*/)
+    {
+        {
+            static uint32_t fps_count = 0;
+            static uint32_t fps = 0;
+            fps_count++;
+            static auto last_check_time = rclcpp::Clock().now();
+            auto dt = rclcpp::Clock().now() - last_check_time;
+            if(dt.seconds() >= 1.0)
+            {
+                last_check_time = rclcpp::Clock().now();
+                fps = fps_count;
+                fps_count = 0;
+            }
+
+            console_preiod(1000, "update() fps: %d", fps);
+        }
+
+        return controller_interface::return_type::OK;
+    }
+
+} // namespace cool_robot_controller
 
 #include "pluginlib/class_list_macros.hpp"
 
 PLUGINLIB_EXPORT_CLASS(
-  cool_robot_controller::CoolRobotController, controller_interface::ControllerInterface)
+    cool_robot_controller::CoolRobotController, controller_interface::ControllerInterface)

@@ -1,7 +1,0 @@
-test_cool_robot_controller:
-  ros__parameters:
-
-    joints:
-      - joint1
-
-    interface_name: acceleration
