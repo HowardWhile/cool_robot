@@ -70,7 +70,7 @@ namespace cool_robot_controller
         // init service
         // --------------------------------------
         this->srv_servo = this->get_node()->create_service<std_srvs::srv::SetBool>(
-            "/servo",
+            "~/servo",
             std::bind(&CoolRobotController::srv_servo_callback, this, std::placeholders::_1, std::placeholders::_2));
 
         return controller_interface::CallbackReturn::SUCCESS;
@@ -135,7 +135,7 @@ namespace cool_robot_controller
     controller_interface::return_type CoolRobotController::update(const rclcpp::Time &time, const rclcpp::Duration & /*period*/)
     {
         (void)time;
-        
+
         // --------------------------------
         // Renew input
         // --------------------------------
