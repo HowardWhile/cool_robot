@@ -5,7 +5,7 @@
                name
                prefix">
     <!-- ========================================= -->
-    <!--  -->
+    <!-- ethercat master -->
     <!-- ========================================= -->
     <ros2_control name="ec_cool_robot" type="system">
       <hardware>
@@ -14,7 +14,7 @@
         <param name="control_frequency">100</param>
       </hardware>
       <!-- ========================================= -->
-      <!-- joint1 -->
+      <!-- ethercat slave 0 joint1 -->
       <!-- ========================================= -->
       <joint name="${prefix}joint1">
         <command_interface name="control_word"/>
@@ -29,11 +29,11 @@
           <param name="alias">0</param>
           <param name="position">0</param>
           <param name="mode_of_operation">8</param>
-          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7.yaml</param>
+          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7_j1j2.yaml</param>
         </ec_module>
       </joint>
       <!-- ========================================= -->
-      <!-- joint2 -->
+      <!-- ethercat slave 1 joint2 -->
       <!-- ========================================= -->
       <joint name="${prefix}joint2">
         <command_interface name="control_word"/>
@@ -48,11 +48,11 @@
           <param name="alias">0</param>
           <param name="position">1</param>
           <param name="mode_of_operation">8</param>
-          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7.yaml</param>
+          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7_j1j2.yaml</param>
         </ec_module>
       </joint>
       <!-- ========================================= -->
-      <!-- joint3 -->
+      <!-- ethercat slave 2 joint3 -->
       <!-- ========================================= -->
       <joint name="${prefix}joint3">
         <command_interface name="control_word"/>
@@ -67,11 +67,11 @@
           <param name="alias">0</param>
           <param name="position">2</param>
           <param name="mode_of_operation">8</param>
-          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7.yaml</param>
+          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7_j3j4j5.yaml</param>
         </ec_module>
       </joint>
       <!-- ========================================= -->
-      <!-- joint4 -->
+      <!-- ethercat slave 3 joint4 -->
       <!-- ========================================= -->
       <joint name="${prefix}joint4">
         <command_interface name="control_word"/>
@@ -86,11 +86,11 @@
           <param name="alias">0</param>
           <param name="position">3</param>
           <param name="mode_of_operation">8</param>
-          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7.yaml</param>
+          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7_j3j4j5.yaml</param>
         </ec_module>
       </joint>
       <!-- ========================================= -->
-      <!-- joint5 -->
+      <!-- ethercat slave 4 joint5 -->
       <!-- ========================================= -->
       <joint name="${prefix}joint5">
         <command_interface name="control_word"/>
@@ -105,11 +105,11 @@
           <param name="alias">0</param>
           <param name="position">4</param>
           <param name="mode_of_operation">8</param>
-          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7.yaml</param>
+          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7_j3j4j5.yaml</param>
         </ec_module>
       </joint>
       <!-- ========================================= -->
-      <!-- joint6 -->
+      <!-- ethercat slave 5 joint6 -->
       <!-- ========================================= -->
       <joint name="${prefix}joint6">
         <command_interface name="control_word"/>
@@ -124,7 +124,7 @@
           <param name="alias">0</param>
           <param name="position">5</param>
           <param name="mode_of_operation">8</param>
-          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7.yaml</param>
+          <param name="slave_config">$(find cool_robot_description)/config/rs_m90e7_j6.yaml</param>
         </ec_module>
       </joint>
     </ros2_control>
