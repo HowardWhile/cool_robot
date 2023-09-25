@@ -27,7 +27,6 @@ endforeach()
 # Add cool_robot_controller library related compile commands
 generate_parameter_library(cool_robot_controller_parameters
   src/cool_robot_controller.yaml
-  include/cool_robot_controller/validate_cool_robot_controller_parameters.hpp
 )
 add_library(
   cool_robot_controller

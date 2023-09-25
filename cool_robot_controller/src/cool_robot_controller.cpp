@@ -134,6 +134,8 @@ namespace cool_robot_controller
 
     controller_interface::return_type CoolRobotController::update(const rclcpp::Time &time, const rclcpp::Duration & /*period*/)
     {
+        (void)time;
+        
         // --------------------------------
         // Renew input
         // --------------------------------
@@ -184,7 +186,6 @@ namespace cool_robot_controller
 
         if (this->request_servo_on)
         {
-            console("request_servo_on test");
             if (servo_on_work() == 0)
             {
                 request_servo_on = false;
@@ -215,7 +216,7 @@ namespace cool_robot_controller
             uint16_t ctrl_word = 0;
             ctrl_word = this->boolArrayToShort(this->control_word);
 
-            console("control_word_renew: %d (0x%X)", ctrl_word, ctrl_word);
+            // console("control_word_renew: %d (0x%X)", ctrl_word, ctrl_word);
             for (size_t idx = 0; idx < this->command_interfaces_.size(); idx++)
             {
                 this->command_interfaces_[idx].set_value(ctrl_word);
@@ -230,7 +231,7 @@ namespace cool_robot_controller
             this->pub_status_words->publish(*msg);
             this->last_time_status_words_pub = this->get_node()->now();
 
-            console("pub status_words: %s", this->Join(", ", this->status_words).c_str());
+            // console("pub status_words: %s", this->Join(", ", this->status_words).c_str());
         }
 
         if (enable_pub_control_words_state)
@@ -240,7 +241,7 @@ namespace cool_robot_controller
 
             this->pub_control_words_state->publish(*msg);
             this->last_time_control_words_state_pub = this->get_node()->now();
-            console("pub control_words_state: %s", this->Join(", ", this->control_words_state).c_str());
+            // console("pub control_words_state: %s", this->Join(", ", this->control_words_state).c_str());
         }
 
         // ----------------------------------
