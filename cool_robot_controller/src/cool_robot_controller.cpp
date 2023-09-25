@@ -61,7 +61,7 @@ namespace cool_robot_controller
         // --------------------------------------
         auto sub_control_word_callback = [this](std_msgs::msg::UInt16::UniquePtr msg) -> void
         {
-            this->control_word = msg->data;
+            this->shortToBoolArray(msg->data, this->control_word);
             this->control_word_renew = true;
             console("sub_control_word_callback");
         };
@@ -184,16 +184,23 @@ namespace cool_robot_controller
 
         if (this->request_servo_on)
         {
+            console("request_servo_on test");
             if (servo_on_work() == 0)
             {
                 request_servo_on = false;
             }
         }
 
-        if(this->request_servo_off)
+        if (this->request_servo_off)
         {
             request_servo_off = false;
 
+            // Shutdonw
+            this->control_word[0] = false;
+            this->control_word[1] = true;
+            this->control_word[2] = true;
+            this->control_word[7] = false;
+            this->control_word_renew = true;
         }
 
         //
@@ -203,12 +210,15 @@ namespace cool_robot_controller
         // --------------------------------
         if (this->control_word_renew == true)
         {
-            console("control_word_renew: %d (0x%X)", this->control_word, this->control_word);
-
             this->control_word_renew = false;
+
+            uint16_t ctrl_word = 0;
+            ctrl_word = this->boolArrayToShort(this->control_word);
+
+            console("control_word_renew: %d (0x%X)", ctrl_word, ctrl_word);
             for (size_t idx = 0; idx < this->command_interfaces_.size(); idx++)
             {
-                this->command_interfaces_[idx].set_value(this->control_word);
+                this->command_interfaces_[idx].set_value(ctrl_word);
             }
         }
 
@@ -247,86 +257,88 @@ namespace cool_robot_controller
     {
         console("srv_servo_callback request: %d", request->data);
 
-        if(request->data == true)
+        if (request->data == true)
         {
             this->request_servo_on = true;
             while (true)
             {
-                rclcpp::sleep_for(std::chrono::milliseconds(50));
-
-                if(this->request_servo_on == false)
+                if (this->request_servo_on == false)
                 {
                     response->success = true;
-                    response->message = "Servo on processed.";    
+                    response->message = "Servo on processed.";
                     break;
                 }
-            }        
+
+                rclcpp::sleep_for(std::chrono::milliseconds(50));
+            }
         }
         else
         {
             this->request_servo_off = true;
             while (true)
             {
-                rclcpp::sleep_for(std::chrono::milliseconds(50));
 
-
-                if(this->request_servo_off == false)
+                if (this->request_servo_off == false)
                 {
                     response->success = true;
-                    response->message = "Servo off processed.";    
+                    response->message = "Servo off processed.";
+                    break;
                 }
+
+                rclcpp::sleep_for(std::chrono::milliseconds(50));
             }
         }
     }
     // --------------------------------------------------------------------
     int CoolRobotController::servo_on_work()
     {
-        bool ctrl_word[16] = {0};
         switch (servo_on_step++)
         {
-
         // 故障復位
         case 0:
-            ctrl_word[7] = false;
+            this->control_word[7] = false;
+            this->control_word_renew = true;
             break;
         case 1:
-            ctrl_word[7] = true;
+            this->control_word[7] = true;
+            this->control_word_renew = true;
             break;
         case 2:
-            ctrl_word[7] = false;
+            this->control_word[7] = false;
+            this->control_word_renew = true;
             break;
 
         // ref: delta ASDA-A3.pdf 使驅動器的狀態機進入準備狀態
         case 3: // 關閉
-            ctrl_word[0] = false;
-            ctrl_word[1] = true;
-            ctrl_word[2] = true;
-            ctrl_word[3] = false;
-            ctrl_word[4] = false;
+            this->control_word[0] = false;
+            this->control_word[1] = true;
+            this->control_word[2] = true;
+            this->control_word[3] = false;
+            this->control_word[4] = false;
+            this->control_word_renew = true;
             break;
 
         case 4: // 準備使能
-            ctrl_word[0] = true;
-            ctrl_word[1] = true;
-            ctrl_word[2] = true;
-            ctrl_word[3] = false;
-            ctrl_word[4] = false;
+            this->control_word[0] = true;
+            this->control_word[1] = true;
+            this->control_word[2] = true;
+            this->control_word[3] = false;
+            this->control_word[4] = false;
+            this->control_word_renew = true;
             break;
 
         case 5: // 始能
-            ctrl_word[0] = true;
-            ctrl_word[1] = true;
-            ctrl_word[2] = true;
-            ctrl_word[3] = true;
-            ctrl_word[4] = false;
+            this->control_word[0] = true;
+            this->control_word[1] = true;
+            this->control_word[2] = true;
+            this->control_word[3] = true;
+            this->control_word[4] = false;
+            this->control_word_renew = true;
             break;
 
         default:
-            return 0;
+            servo_on_step = 0;
         }
-
-        this->control_word = this->bool2short(ctrl_word);
-        this->control_word_renew = true;
 
         return servo_on_step;
     }
@@ -371,14 +383,22 @@ namespace cool_robot_controller
         return previous != current;
     }
 
-    short CoolRobotController::bool2short(const bool bool16[16])
+    short CoolRobotController::boolArrayToShort(const bool bool_array[16])
     {
         uint16_t r_val = 0;
         for (int i = 0; i < 16; ++i)
         {
-            r_val |= (bool16[i] ? 1 : 0) << i;
+            r_val |= (bool_array[i] ? 1 : 0) << i;
         }
-        return 0;
+        return r_val;
+    }
+
+    void CoolRobotController::shortToBoolArray(short value, bool boolArray[16])
+    {
+        for (int i = 0; i < 16; ++i)
+        {
+            boolArray[i] = ((value >> i) & 1) == 1;
+        }
     }
 
 } // namespace cool_robot_controller

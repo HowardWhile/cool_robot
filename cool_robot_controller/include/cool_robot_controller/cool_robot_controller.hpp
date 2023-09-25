@@ -110,7 +110,7 @@ namespace cool_robot_controller
         std::vector<uint16_t> last_control_words_state;
         rclcpp::Time last_time_control_words_state_pub;
 
-        uint16_t control_word; //
+        bool control_word[16] = {0}; //
         bool control_word_renew = false;
 
         // servo control
@@ -118,7 +118,6 @@ namespace cool_robot_controller
         bool request_servo_on = false;
         int servo_on_step = 0;
         int servo_on_work();
-
 
         // 為每個項目或成員之間加入指定的分隔符號
         std::string Join(std::string separator, std::vector<std::string> values);
@@ -129,7 +128,8 @@ namespace cool_robot_controller
         bool hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current);
 
         // 型態轉換
-        short bool2short(const bool bool16[16]);
+        short boolArrayToShort(const bool bool_array[16]);
+        void shortToBoolArray(short value, bool boolArray[16]);
     };
 
 } // namespace cool_robot_controller
