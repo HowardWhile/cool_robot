@@ -52,7 +52,7 @@ public:
         this->sub_joy = this->create_subscription<sensor_msgs::msg::Joy>("joy", 10, std::bind(&XboxJoystickNode::onJoyCallback, this, std::placeholders::_1));
 
         // srv client
-        this->client_servo = create_client<std_srvs::srv::SetBool>("/cool_robot_controller/servo");
+        this->client_servo = create_client<std_srvs::srv::SetBool>("/servo");
 
         // 等待服務伺服器啟動
         while (!this->client_servo->wait_for_service(std::chrono::seconds(5)))

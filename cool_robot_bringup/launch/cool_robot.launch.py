@@ -251,7 +251,8 @@ def generate_launch_description():
         package='cool_robot_joystick',
         executable='xbox_joystick',
         name='xbox_joystick',
-        output='screen'
+        output='screen',
+        remappings=[('/servo', '/cool_robot_controller/servo')] 
     )
     joy_controller = [joy_node, xbox_joystick_node]
     # --------------------------------------------------
