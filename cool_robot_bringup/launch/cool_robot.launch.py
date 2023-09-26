@@ -220,13 +220,33 @@ def generate_launch_description():
             )
         ]
 
+    # --------------------------------------------------
+    # 延遲啟動rviz
+    # --------------------------------------------------
+    # 方法1 延遲5秒啟動
+    # delay_start_rviz_node = TimerAction(
+    #     period=5.0,  # 5秒
+    #     actions=[
+    #         rviz_node,
+    #     ]
+    # )    
+
+    # 方法2 joint_state_broadcaster 載入完成再開rviz_node
+    delay_start_rviz_node = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[rviz_node],
+        )
+    )
+    # --------------------------------------------------
+
     return LaunchDescription(
         declared_arguments
         + [
             control_node,
             robot_state_pub_node,
-            rviz_node,
-            delay_joint_state_broadcaster_spawner_after_ros2_control_node,
+            delay_joint_state_broadcaster_spawner_after_ros2_control_node,            
+            delay_start_rviz_node, # rviz_node,
         ]
         + delay_robot_controller_spawners_after_joint_state_broadcaster_spawner
         + delay_inactive_robot_controller_spawners_after_joint_state_broadcaster_spawner
