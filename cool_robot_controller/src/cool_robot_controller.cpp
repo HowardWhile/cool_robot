@@ -117,13 +117,7 @@ namespace cool_robot_controller
 
         for (const std::string &j : this->params_.joints)
         {
-            // console("%s", j.c_str());
             command_interfaces_config.names.push_back(j + "/control_word");
-        }
-
-        for (const std::string &j : this->params_.joints)
-        {
-            // console("%s", j.c_str());
             command_interfaces_config.names.push_back(j + "/operation_mode");
         }
 
@@ -166,13 +160,13 @@ namespace cool_robot_controller
         // --------------------------------
         // Renew input
         // --------------------------------
-        
+
         for (size_t idx = 0, interface_idx = 0; idx < this->params_.joints.size(); idx++)
         {
             // 讀出最新 status_words (0x6041)
             // console("status_words[%d] = state_interfaces[%d]: %s",idx, interface_idx, this->state_interfaces_[interface_idx].get_name().c_str());
             this->status_words[idx] = this->state_interfaces_[interface_idx++].get_value();
-            
+
             // 讀出最新 operation mode (0x6061)
             // console("operation_mode_state[%d] = state_interfaces[%d]: %s",idx, interface_idx, this->state_interfaces_[interface_idx].get_name().c_str());
             this->operation_mode_state[idx] = this->state_interfaces_[interface_idx++].get_value();
@@ -254,18 +248,32 @@ namespace cool_robot_controller
         // --------------------------------
         if (this->control_word_renew == true)
         {
-            this->control_word_renew = false;
-
             uint16_t ctrl_word = 0;
             ctrl_word = this->boolArrayToShort(this->control_word);
 
-            // console("control_word_renew: %d (0x%X)", ctrl_word, ctrl_word);
-            for (size_t idx = 0; idx < this->command_interfaces_.size(); idx++)
+            for (size_t idx = 0, interface_idx = 0; idx < this->params_.joints.size(); idx++, interface_idx += 2)
             {
-                this->command_interfaces_[idx].set_value(ctrl_word);
+                // 將ctrl_word寫入對應的command interface
+                // console("command_interfaces_[%d]: %s", interface_idx, this->command_interfaces_[interface_idx].get_name().c_str());
+                this->command_interfaces_[interface_idx].set_value(ctrl_word);
             }
+            this->control_word_renew = false;
         }
 
+        if(this->operation_mode_renew == true)
+        {
+            for (size_t idx = 0, interface_idx = 0; idx < this->params_.joints.size(); idx++, interface_idx += 2)
+            {
+                // 將ctrl_word寫入對應的command interface
+                // console("command_interfaces_[%d]: %s", interface_idx, this->command_interfaces_[interface_idx].get_name().c_str());
+                this->command_interfaces_[interface_idx+1].set_value(this->operation_mode);
+            }
+            this->operation_mode_renew = false;
+        }
+
+        // --------------------------------
+        // topic public methods
+        // --------------------------------
         if (enable_pub_status_words)
         {
             auto msg = std::make_shared<std_msgs::msg::UInt16MultiArray>();
@@ -313,7 +321,8 @@ namespace cool_robot_controller
         if (request->data == true)
         {
             this->request_servo_on = true;
-            while (true)
+            rclcpp::Rate rate(100);
+            while (rclcpp::ok())
             {
                 if (this->request_servo_on == false)
                 {
@@ -321,24 +330,22 @@ namespace cool_robot_controller
                     response->message = "Servo on processed.";
                     break;
                 }
-
-                rclcpp::sleep_for(std::chrono::milliseconds(50));
+                rate.sleep();
             }
         }
         else
         {
             this->request_servo_off = true;
-            while (true)
+            rclcpp::Rate rate(100);
+            while (rclcpp::ok())
             {
-
                 if (this->request_servo_off == false)
                 {
                     response->success = true;
                     response->message = "Servo off processed.";
                     break;
                 }
-
-                rclcpp::sleep_for(std::chrono::milliseconds(50));
+                rate.sleep();
             }
         }
     }
@@ -347,7 +354,21 @@ namespace cool_robot_controller
         const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         const std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
+        (void)request;
         console("srv_trigger_csp_callback()");
+        this->operation_mode = 8;
+        this->operation_mode_renew = true;
+        rclcpp::Rate rate(100);
+        while (rclcpp::ok())
+        {
+            if (this->operation_mode_renew == false)
+            {
+                response->success = true;
+                response->message = "Servo off processed.";
+                break;
+            }
+            rate.sleep();
+        }
     }
 
     void CoolRobotController::srv_trigger_cst_callback(
@@ -355,6 +376,20 @@ namespace cool_robot_controller
         const std::shared_ptr<std_srvs::srv::Trigger::Response> response)
     {
         console("srv_trigger_cst_callback()");
+        (void)request;
+        this->operation_mode = 10;
+        this->operation_mode_renew = true;
+        rclcpp::Rate rate(100);
+        while (rclcpp::ok())
+        {
+            if (this->operation_mode_renew == false)
+            {
+                response->success = true;
+                response->message = "Servo off processed.";
+                break;
+            }
+            rate.sleep();
+        }
     }
     // --------------------------------------------------------------------
     int CoolRobotController::servo_on_work()
@@ -445,7 +480,7 @@ namespace cool_robot_controller
         return this->Join(separator, str_valuse);
     }
 
-        std::string CoolRobotController::Join(std::string separator, std::vector<uint8_t> values)
+    std::string CoolRobotController::Join(std::string separator, std::vector<uint8_t> values)
     {
         std::vector<std::string> str_valuse;
         for (const auto &data : values)

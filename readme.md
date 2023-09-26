@@ -29,6 +29,12 @@ servo off
 ros2 service call /cool_robot_controller/servo std_srvs/srv/SetBool "data: False"
 ```
 
+**透過call service的方式切換CSP與CST模式**
+```shell
+ros2 service call /cool_robot_controller/trigger_csp std_srvs/srv/Trigger
+ros2 service call /cool_robot_controller/trigger_cst std_srvs/srv/Trigger
+```
+
 >故障復位 
 >0x00 -> 0x80 -> 0x00
 >

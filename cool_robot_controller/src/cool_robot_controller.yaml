@@ -1,26 +1,18 @@
 cool_robot_controller:
+  # 當狀態沒有變化時隔一段時間(單位:秒)發出topic
   topic_pub_interval: {
     type: double,
     default_value: 5.0,
-    # description: "status word 與 control word 沒有變化時, 隔一段時間(單位:秒)發出topic",
     description: "When the status word and control word remain unchanged, a topic is published at regular intervals (unit: seconds)."
   }
-  joints: {
+  # 指定controller使用的joint名稱表。ex: joint1 joint2 joint3 ...
+  joints: { 
     type: string_array,
-    default_value: [],
+    default_value: [],    
     description: "Specifies joints used by the controller. If state joints parameter is defined, then only command joints are defined with this parameter.",
     read_only: true,
     validation: {
       unique<>: null,
       not_empty<>: null,
-    }
-  }
-  state_joints: {
-    type: string_array,
-    default_value: [],
-    description: "(optional) Specifies joints for reading states. This parameter is only relevant when state joints are different then command joint, i.e., when a following controller is used.",
-    read_only: true,
-    validation: {
-      unique<>: null,
     }
   }

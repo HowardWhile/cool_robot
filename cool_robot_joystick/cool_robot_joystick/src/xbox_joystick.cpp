@@ -2,6 +2,7 @@
 #include <std_msgs/msg/char.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 class XboxJoystickNode : public rclcpp::Node
 {
@@ -53,12 +54,18 @@ public:
 
         // srv client
         this->client_servo = create_client<std_srvs::srv::SetBool>("/servo");
+        this->client_trigger_csp = create_client<std_srvs::srv::Trigger>("/trigger_csp");
+        this->client_trigger_cst = create_client<std_srvs::srv::Trigger>("/trigger_cst");
 
         // 等待服務伺服器啟動
-        while (!this->client_servo->wait_for_service(std::chrono::seconds(5)))
+        while (!this->client_servo->wait_for_service(std::chrono::seconds(1)))
         {
-            RCLCPP_INFO(get_logger(), "等待服務 %s 啟動...", this->client_servo->get_service_name());
+            RCLCPP_INFO(get_logger(), "等待服務啟動...");
         }
+        RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_servo->get_service_name());
+        RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_trigger_csp->get_service_name());
+        RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_trigger_cst->get_service_name());
+        
 
         // 按鍵
         this->btn_status.resize(xbox_buttons_size, false);
@@ -123,12 +130,35 @@ private:
     {
         if (future.get()->success)
         {
-            RCLCPP_INFO(get_logger(), "服務請求成功");
             RCLCPP_INFO(get_logger(), "Got result: [%s]", future.get()->message.c_str());
         }
         else
         {
-            RCLCPP_ERROR(get_logger(), "服務請求失敗");
+            RCLCPP_ERROR(get_logger(), "Request service %s failed", client_servo->get_service_name());
+        }
+    }
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client_trigger_csp;
+    void client_trigger_csp_callback(const rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future)
+    {
+        if (future.get()->success)
+        {
+            RCLCPP_INFO(get_logger(), "Got result: [%s]", future.get()->message.c_str());
+        }
+        else
+        {
+            RCLCPP_ERROR(get_logger(), "Request service %s failed", client_trigger_csp->get_service_name());
+        }
+    }
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr client_trigger_cst;
+    void client_trigger_cst_callback(const rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture future)
+    {
+        if (future.get()->success)
+        {
+            RCLCPP_INFO(get_logger(), "Got result: [%s]", future.get()->message.c_str());
+        }
+        else
+        {
+            RCLCPP_ERROR(get_logger(), "Request service %s failed", client_trigger_cst->get_service_name());
         }
     }
 
@@ -154,6 +184,7 @@ private:
             auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
             request->data = true; // servo on
             this->client_servo->async_send_request(request, std::bind(&XboxJoystickNode::client_servo_callback, this, std::placeholders::_1));
+        
         }
 
         if (button_key == XboxButtons::LT)
@@ -162,8 +193,21 @@ private:
             auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
             request->data = false; // servo off
             this->client_servo->async_send_request(request, std::bind(&XboxJoystickNode::client_servo_callback, this, std::placeholders::_1));
+        }
+
+        if (button_key == XboxButtons::RB)
+        {
+            auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+            this->client_trigger_csp->async_send_request(request, std::bind(&XboxJoystickNode::client_trigger_csp_callback, this, std::placeholders::_1));
+        }
+
+        if (button_key == XboxButtons::RT)
+        {
+            auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+            this->client_trigger_cst->async_send_request(request, std::bind(&XboxJoystickNode::client_trigger_cst_callback, this, std::placeholders::_1));
 
         }
+
     }
 
     void onKeyUp(const XboxButtons button_key)

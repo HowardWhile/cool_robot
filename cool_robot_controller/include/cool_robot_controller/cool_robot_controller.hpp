@@ -145,6 +145,9 @@ namespace cool_robot_controller
         bool control_word[16] = {0}; //
         bool control_word_renew = false;
 
+        uint8_t operation_mode = 0;
+        bool operation_mode_renew = false;
+
         // servo control
         bool request_servo_off = false;
         bool request_servo_on = false;

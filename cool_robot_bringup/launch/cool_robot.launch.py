@@ -252,7 +252,10 @@ def generate_launch_description():
         executable='xbox_joystick',
         name='xbox_joystick',
         output='screen',
-        remappings=[('/servo', '/cool_robot_controller/servo')] 
+        remappings=[('/servo', '/cool_robot_controller/servo'),
+                    ('/trigger_csp', '/cool_robot_controller/trigger_csp'),
+                    ('/trigger_cst', '/cool_robot_controller/trigger_cst'),]
+
     )
     joy_controller = [joy_node, xbox_joystick_node]
     # --------------------------------------------------
