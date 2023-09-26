@@ -1,6 +1,7 @@
 #include <sensor_msgs/msg/joy.hpp>
 #include <std_msgs/msg/char.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include "std_srvs/srv/set_bool.hpp"
 
 class XboxJoystickNode : public rclcpp::Node
 {
@@ -44,10 +45,20 @@ public:
 
     XboxJoystickNode() : Node("xbox_joystick")
     {
+
         // pub
 
         // sub
         this->sub_joy = this->create_subscription<sensor_msgs::msg::Joy>("joy", 10, std::bind(&XboxJoystickNode::onJoyCallback, this, std::placeholders::_1));
+
+        // srv client
+        this->client_servo = create_client<std_srvs::srv::SetBool>("/cool_robot_controller/servo");
+
+        // 等待服務伺服器啟動
+        while (!this->client_servo->wait_for_service(std::chrono::seconds(5)))
+        {
+            RCLCPP_INFO(get_logger(), "等待服務 %s 啟動...", this->client_servo->get_service_name());
+        }
 
         // 按鍵
         this->btn_status.resize(xbox_buttons_size, false);
@@ -104,8 +115,26 @@ private:
 
         this->last_btn_status = btn_status;
     }
+    // -------------------------------------
+    // service
+    // -------------------------------------
+    rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr client_servo;
+    void client_servo_callback(const rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future)
+    {
+        if (future.get()->success)
+        {
+            RCLCPP_INFO(get_logger(), "服務請求成功");
+            RCLCPP_INFO(get_logger(), "Got result: [%s]", future.get()->message.c_str());
+        }
+        else
+        {
+            RCLCPP_ERROR(get_logger(), "服務請求失敗");
+        }
+    }
 
+    // -------------------------------------
     // key events
+    // -------------------------------------
     std::vector<bool> btn_status;
     std::vector<bool> last_btn_status;
 
@@ -113,50 +142,28 @@ private:
     {
         RCLCPP_INFO(get_logger(), "onKeyDown: %s", buttonToString(button_key).c_str());
 
-
         auto msg = std::make_shared<std_msgs::msg::Char>();
 
-        if(button_key == XboxButtons::START)
+        if (button_key == XboxButtons::START)
         {
         }
 
-        if(button_key == XboxButtons::BACK)
+        if (button_key == XboxButtons::LB)
         {
+            // Servo On (ros2 service call /cool_robot_controller/servo std_srvs/srv/SetBool "data: True" )
+            auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+            request->data = true; // servo on
+            this->client_servo->async_send_request(request, std::bind(&XboxJoystickNode::client_servo_callback, this, std::placeholders::_1));
         }
 
-        if(button_key == XboxButtons::A)
+        if (button_key == XboxButtons::LT)
         {
+            // Servo Off (ros2 service call /cool_robot_controller/servo std_srvs/srv/SetBool "data: False" )
+            auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+            request->data = false; // servo off
+            this->client_servo->async_send_request(request, std::bind(&XboxJoystickNode::client_servo_callback, this, std::placeholders::_1));
+
         }
-
-        if(button_key == XboxButtons::B)
-        {
-        }
-
-        if(button_key == XboxButtons::X)
-        {
-        }
-
-        if(button_key == XboxButtons::Y)
-        {
-        }
-
-        if(button_key == XboxButtons::RB)
-        {
-        }
-
-        if(button_key == XboxButtons::UP)
-        {
-        }
-
-        if(button_key == XboxButtons::DOWN)
-        {
-        }
-
-        if(button_key == XboxButtons::LEFT_STICK)
-        {
-        }
-
-
     }
 
     void onKeyUp(const XboxButtons button_key)

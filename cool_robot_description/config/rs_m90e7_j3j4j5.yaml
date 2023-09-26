@@ -6,7 +6,7 @@ auto_fault_reset: false
 auto_state_transitions: false
 
 sdo:  # sdo data to be transferred at drive startup
-  - {index: 0x6060, sub_index: 0, type: int8, value: 8}
+  - {index: 0x6060, sub_index: 0, type: int8, value: 0}
   
 rpdo:  # RxPDO
   - index: 0x1601
@@ -20,7 +20,7 @@ rpdo:  # RxPDO
       # Target Torque
       - {index: 0x6071, sub_index: 0, type: int16, default: 0} 
       # Mode of Operation
-      - {index: 0x6060, sub_index: 0, type: int8, default: 8} 
+      - {index: 0x6060, sub_index: 0, type: int8, default: .nan} 
 
 tpdo:  # TxPDO
   - index: 0x1a01

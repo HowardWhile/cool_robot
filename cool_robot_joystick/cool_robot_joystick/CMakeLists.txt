@@ -13,6 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # ---------------------------------------
 # node 
@@ -20,6 +21,7 @@ find_package(sensor_msgs REQUIRED)
 add_executable(xbox_joystick src/xbox_joystick.cpp)
 ament_target_dependencies(xbox_joystick rclcpp)
 ament_target_dependencies(xbox_joystick sensor_msgs)
+ament_target_dependencies(xbox_joystick std_srvs)
 
 # ---------------------------------------
 # include 

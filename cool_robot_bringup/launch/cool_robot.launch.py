@@ -239,6 +239,23 @@ def generate_launch_description():
         )
     )
     # --------------------------------------------------
+    # 搖桿控制
+    # --------------------------------------------------
+    joy_node = Node(
+        package='joy',
+        executable='joy_node',
+        name='joy_node'
+    )
+
+    xbox_joystick_node = Node(
+        package='cool_robot_joystick',
+        executable='xbox_joystick',
+        name='xbox_joystick',
+        output='screen'
+    )
+    joy_controller = [joy_node, xbox_joystick_node]
+    # --------------------------------------------------
+
 
     return LaunchDescription(
         declared_arguments
@@ -250,4 +267,5 @@ def generate_launch_description():
         ]
         + delay_robot_controller_spawners_after_joint_state_broadcaster_spawner
         + delay_inactive_robot_controller_spawners_after_joint_state_broadcaster_spawner
+        + joy_controller
     )
