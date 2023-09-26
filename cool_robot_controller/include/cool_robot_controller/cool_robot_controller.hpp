@@ -28,6 +28,8 @@
 #include "realtime_tools/realtime_buffer.h"
 #include "realtime_tools/realtime_publisher.h"
 #include "std_srvs/srv/set_bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
+#include "std_msgs/msg/u_int8_multi_array.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "std_msgs/msg/u_int16.hpp"
 
@@ -88,27 +90,57 @@ namespace cool_robot_controller
         rclcpp::Service<ControllerModeSrvType>::SharedPtr set_slow_control_mode_service_;
         realtime_tools::RealtimeBuffer<control_mode_type> control_mode_;
 
+        // -------------------------------------------------------
         // publishers
+        // -------------------------------------------------------
         rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_status_words;
         rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_control_words_state;
+        rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr pub_operation_mode_state;
+        
 
+        // -------------------------------------------------------
         // subscribers
+        // -------------------------------------------------------
         rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr sub_control_word;
+        
 
+        // -------------------------------------------------------
         // services
+        // -------------------------------------------------------
+        // 控制 Servo on & off
         rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr srv_servo;
         void srv_servo_callback(
             const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
             const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
+        // 切換控制器成週期同步位置模式
+        rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_trigger_csp;
+        void srv_trigger_csp_callback(
+            const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+            const std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
+        // 切換控制器成週期同步力矩模式
+        rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_trigger_cst;
+        void srv_trigger_cst_callback(
+            const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+            const std::shared_ptr<std_srvs::srv::Trigger::Response> response);    
+        // -------------------------------------------------------
+
+        
+
     private:
         std::vector<uint16_t> status_words;
         std::vector<uint16_t> last_status_words;
-        rclcpp::Time last_time_status_words_pub;
+        rclcpp::Time last_time_pub_status_words;
 
         std::vector<uint16_t> control_words_state;
         std::vector<uint16_t> last_control_words_state;
-        rclcpp::Time last_time_control_words_state_pub;
+        rclcpp::Time last_time_pub_control_words_state;
+        
+        std::vector<uint8_t> operation_mode_state;
+        std::vector<uint8_t> last_operation_mode_state;
+        rclcpp::Time last_time_pub_operation_mode_state;
+
 
         bool control_word[16] = {0}; //
         bool control_word_renew = false;
@@ -123,9 +155,11 @@ namespace cool_robot_controller
         std::string Join(std::string separator, std::vector<std::string> values);
         std::string Join(std::string separator, std::vector<int> values);
         std::string Join(std::string separator, std::vector<uint16_t> values);
+        std::string Join(std::string separator, std::vector<uint8_t> values);
 
         // 函數用於檢查向量是否有變化
         bool hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current);
+        bool hasVectorChanged(const std::vector<uint8_t> &previous, const std::vector<uint8_t> &current);
 
         // 型態轉換
         short boolArrayToShort(const bool bool_array[16]);

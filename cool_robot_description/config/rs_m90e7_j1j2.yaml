@@ -18,9 +18,9 @@ rpdo:  # RxPDO
       # Target Velocity
       - {index: 0x60FF, sub_index: 0, type: int32, default: 0} 
       # Target Torque
-      - {index: 0x6071, sub_index: 0, type: int16, default: 0} 
+      - {index: 0x6071, sub_index: 0, type: int16, default: 0, command_interface: "effort"} 
       # Mode of Operation
-      - {index: 0x6060, sub_index: 0, type: int8, default: .nan} 
+      - {index: 0x6060, sub_index: 0, type: int8, default: .nan, command_interface: "operation_mode"} 
 
 tpdo:  # TxPDO
   - index: 0x1a01
@@ -34,7 +34,7 @@ tpdo:  # TxPDO
       # Actual Torque
       - {index: 0x6077, sub_index: 0, type: int16, state_interface: "effort"}
       # Mode of operation display
-      - {index: 0x6061, sub_index: 0, type: int8} 
+      - {index: 0x6061, sub_index: 0, type: int8, state_interface: "operation_mode"} 
 
 sm:  # Sync Manager
   - {index: 0, type: output, pdo: ~, watchdog: disable}

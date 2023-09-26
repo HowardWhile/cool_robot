@@ -52,10 +52,11 @@ namespace cool_robot_controller
         // init publishers
         // --------------------------------------
         this->pub_status_words = this->get_node()->create_publisher<std_msgs::msg::UInt16MultiArray>("/status_words", 10);
+        this->last_time_pub_status_words = this->get_node()->now();
         this->pub_control_words_state = this->get_node()->create_publisher<std_msgs::msg::UInt16MultiArray>("/control_words_state", 10);
-        this->last_time_status_words_pub = this->get_node()->now();
-        this->last_time_control_words_state_pub = this->get_node()->now();
-
+        this->last_time_pub_control_words_state = this->get_node()->now();
+        this->pub_operation_mode_state = this->get_node()->create_publisher<std_msgs::msg::UInt8MultiArray>("/operation_mode_state", 10);
+        this->last_time_pub_operation_mode_state = this->get_node()->now();
         // --------------------------------------
         // init subscriber
         // --------------------------------------
@@ -71,9 +72,27 @@ namespace cool_robot_controller
         // --------------------------------------
         this->srv_servo = this->get_node()->create_service<std_srvs::srv::SetBool>(
             "~/servo",
-            std::bind(&CoolRobotController::srv_servo_callback, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&CoolRobotController::srv_servo_callback,
+                      this,
+                      std::placeholders::_1,
+                      std::placeholders::_2));
 
+        this->srv_trigger_csp = this->get_node()->create_service<std_srvs::srv::Trigger>(
+            "~/trigger_csp",
+            std::bind(&CoolRobotController::srv_trigger_csp_callback,
+                      this,
+                      std::placeholders::_1,
+                      std::placeholders::_2));
+
+        this->srv_trigger_cst = this->get_node()->create_service<std_srvs::srv::Trigger>(
+            "~/trigger_cst",
+            std::bind(&CoolRobotController::srv_trigger_cst_callback,
+                      this,
+                      std::placeholders::_1,
+                      std::placeholders::_2));
+        // --------------------------------------
         return controller_interface::CallbackReturn::SUCCESS;
+        // --------------------------------------
     }
 
     controller_interface::CallbackReturn CoolRobotController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/)
@@ -84,6 +103,7 @@ namespace cool_robot_controller
         int size = this->params_.joints.size();
         this->status_words.resize(size);
         this->control_words_state.resize(size);
+        this->operation_mode_state.resize(size);
 
         console("configure successful");
         return controller_interface::CallbackReturn::SUCCESS;
@@ -101,6 +121,12 @@ namespace cool_robot_controller
             command_interfaces_config.names.push_back(j + "/control_word");
         }
 
+        for (const std::string &j : this->params_.joints)
+        {
+            // console("%s", j.c_str());
+            command_interfaces_config.names.push_back(j + "/operation_mode");
+        }
+
         return command_interfaces_config;
     }
 
@@ -113,6 +139,7 @@ namespace cool_robot_controller
         {
             // console("%s", j.c_str());
             state_interfaces_config.names.push_back(j + "/status_word");
+            state_interfaces_config.names.push_back(j + "/operation_mode");
         }
 
         return state_interfaces_config;
@@ -139,11 +166,18 @@ namespace cool_robot_controller
         // --------------------------------
         // Renew input
         // --------------------------------
-        // 更新 status_words
-        for (size_t idx = 0; idx < this->state_interfaces_.size(); idx++)
+        
+        for (size_t idx = 0, interface_idx = 0; idx < this->params_.joints.size(); idx++)
         {
-            this->status_words[idx] = this->state_interfaces_[idx].get_value();
+            // 讀出最新 status_words (0x6041)
+            // console("status_words[%d] = state_interfaces[%d]: %s",idx, interface_idx, this->state_interfaces_[interface_idx].get_name().c_str());
+            this->status_words[idx] = this->state_interfaces_[interface_idx++].get_value();
+            
+            // 讀出最新 operation mode (0x6061)
+            // console("operation_mode_state[%d] = state_interfaces[%d]: %s",idx, interface_idx, this->state_interfaces_[interface_idx].get_name().c_str());
+            this->operation_mode_state[idx] = this->state_interfaces_[interface_idx++].get_value();
         }
+
         // console_preiod(1000, "status_word: %s", this->Join(", ", this->status_words).c_str());
 
         // 更新 control_words_state
@@ -163,25 +197,34 @@ namespace cool_robot_controller
             this->last_status_words = this->status_words;
             enable_pub_status_words = true;
         }
-
-        // 有變化就發出topic
         bool enable_pub_control_words_state = false;
         if (this->hasVectorChanged(this->last_control_words_state, this->control_words_state) == true)
         {
             this->last_control_words_state = this->control_words_state;
             enable_pub_control_words_state = true;
         }
+        bool enable_pub_operation_mode_state = false;
+        if (this->hasVectorChanged(this->last_operation_mode_state, this->operation_mode_state) == true)
+        {
+            this->last_operation_mode_state = this->operation_mode_state;
+            enable_pub_operation_mode_state = true;
+        }
 
         // 沒有變化一段時間也發出topic
-        if ((this->get_node()->now() - this->last_time_status_words_pub).seconds() > params_.topic_pub_interval)
+        if ((this->get_node()->now() - this->last_time_pub_status_words).seconds() > params_.topic_pub_interval)
         {
-            this->last_time_status_words_pub = this->get_node()->now();
+            this->last_time_pub_status_words = this->get_node()->now();
             enable_pub_status_words = true;
         }
-        if ((this->get_node()->now() - this->last_time_control_words_state_pub).seconds() > params_.topic_pub_interval)
+        if ((this->get_node()->now() - this->last_time_pub_control_words_state).seconds() > params_.topic_pub_interval)
         {
-            this->last_time_control_words_state_pub = this->get_node()->now();
+            this->last_time_pub_control_words_state = this->get_node()->now();
             enable_pub_control_words_state = true;
+        }
+        if ((this->get_node()->now() - this->last_time_pub_operation_mode_state).seconds() > params_.topic_pub_interval)
+        {
+            this->last_time_pub_operation_mode_state = this->get_node()->now();
+            enable_pub_operation_mode_state = true;
         }
 
         if (this->request_servo_on)
@@ -229,8 +272,7 @@ namespace cool_robot_controller
             msg->data = this->status_words;
 
             this->pub_status_words->publish(*msg);
-            this->last_time_status_words_pub = this->get_node()->now();
-
+            this->last_time_pub_status_words = this->get_node()->now();
             // console("pub status_words: %s", this->Join(", ", this->status_words).c_str());
         }
 
@@ -240,8 +282,18 @@ namespace cool_robot_controller
             msg->data = this->control_words_state;
 
             this->pub_control_words_state->publish(*msg);
-            this->last_time_control_words_state_pub = this->get_node()->now();
+            this->last_time_pub_control_words_state = this->get_node()->now();
             // console("pub control_words_state: %s", this->Join(", ", this->control_words_state).c_str());
+        }
+
+        if (enable_pub_operation_mode_state)
+        {
+            auto msg = std::make_shared<std_msgs::msg::UInt8MultiArray>();
+            msg->data = this->operation_mode_state;
+
+            this->pub_operation_mode_state->publish(*msg);
+            this->last_time_pub_operation_mode_state = this->get_node()->now();
+            console("pub operation_mode_state: %s", this->Join(", ", this->operation_mode_state).c_str());
         }
 
         // ----------------------------------
@@ -289,6 +341,20 @@ namespace cool_robot_controller
                 rclcpp::sleep_for(std::chrono::milliseconds(50));
             }
         }
+    }
+
+    void CoolRobotController::srv_trigger_csp_callback(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        const std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    {
+        console("srv_trigger_csp_callback()");
+    }
+
+    void CoolRobotController::srv_trigger_cst_callback(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        const std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+    {
+        console("srv_trigger_cst_callback()");
     }
     // --------------------------------------------------------------------
     int CoolRobotController::servo_on_work()
@@ -379,7 +445,22 @@ namespace cool_robot_controller
         return this->Join(separator, str_valuse);
     }
 
+        std::string CoolRobotController::Join(std::string separator, std::vector<uint8_t> values)
+    {
+        std::vector<std::string> str_valuse;
+        for (const auto &data : values)
+        {
+            str_valuse.push_back(std::to_string(data));
+        }
+        return this->Join(separator, str_valuse);
+    }
+
     bool CoolRobotController::hasVectorChanged(const std::vector<uint16_t> &previous, const std::vector<uint16_t> &current)
+    {
+        return previous != current;
+    }
+
+    bool CoolRobotController::hasVectorChanged(const std::vector<uint8_t> &previous, const std::vector<uint8_t> &current)
     {
         return previous != current;
     }

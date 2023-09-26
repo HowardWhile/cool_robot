@@ -1,4 +1,4 @@
-# Configuration file for RS-M90E7 Joint X
+# Configuration file for RS-M90E7 Joint XXX
 vendor_id: 0x000001DD
 product_id: 0x10306086
 assign_activate: 0x0300  # DC Synch register
@@ -6,7 +6,7 @@ auto_fault_reset: false
 auto_state_transitions: false
 
 sdo:  # sdo data to be transferred at drive startup
-  
+  - {index: 0x6060, sub_index: 0, type: int8, value: 0}
 rpdo:  # RxPDO
   - index: 0x1601
     channels:
@@ -17,9 +17,9 @@ rpdo:  # RxPDO
       # Target Velocity
       - {index: 0x60FF, sub_index: 0, type: int32, default: 0} 
       # Target Torque
-      - {index: 0x6071, sub_index: 0, type: int16, default: 0} 
+      - {index: 0x6071, sub_index: 0, type: int16, default: 0, command_interface: "effort"} 
       # Mode of Operation
-      # - {index: 0x6060, sub_index: 0, type: int8, default: 8} 
+      - {index: 0x6060, sub_index: 0, type: int8, default: .nan, command_interface: "operation_mode"} 
 
 tpdo:  # TxPDO
   - index: 0x1a01
@@ -31,7 +31,7 @@ tpdo:  # TxPDO
       # Actual velocity
       - {index: 0x606c, sub_index: 0, type: int32, state_interface: "velocity"} 
       # Actual Torque
-      - {index: 0x6077, sub_index: 0, type: int16, state_interface: "torque"}
+      - {index: 0x6077, sub_index: 0, type: int16, state_interface: "effort"}
       # Mode of operation display
       # - {index: 0x6061, sub_index: 0, type: int8} 
 
