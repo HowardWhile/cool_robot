@@ -58,14 +58,30 @@ public:
         this->client_trigger_cst = create_client<std_srvs::srv::Trigger>("/trigger_cst");
 
         // 等待服務伺服器啟動
+        rclcpp::Rate rate(1);
+        while (rclcpp::ok())
+        {
+            if (this->client_servo->service_is_ready() &&
+                this->client_trigger_csp->service_is_ready() &&
+                this->client_trigger_cst->service_is_ready())
+            {
+                RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_servo->get_service_name());
+                RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_trigger_csp->get_service_name());
+                RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_trigger_cst->get_service_name());
+                break;
+            }
+            else
+            {
+                RCLCPP_INFO(get_logger(), "等待服務啟動...");
+            }
+
+            rate.sleep();
+        }
+
         while (!this->client_servo->wait_for_service(std::chrono::seconds(1)))
         {
             RCLCPP_INFO(get_logger(), "等待服務啟動...");
-        }
-        RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_servo->get_service_name());
-        RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_trigger_csp->get_service_name());
-        RCLCPP_INFO(get_logger(), "偵測到服務 %s 啟動!!", this->client_trigger_cst->get_service_name());
-        
+        }        
 
         // 按鍵
         this->btn_status.resize(xbox_buttons_size, false);

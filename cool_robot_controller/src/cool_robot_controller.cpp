@@ -301,7 +301,7 @@ namespace cool_robot_controller
 
             this->pub_operation_mode_state->publish(*msg);
             this->last_time_pub_operation_mode_state = this->get_node()->now();
-            console("pub operation_mode_state: %s", this->Join(", ", this->operation_mode_state).c_str());
+            // console("pub operation_mode_state: %s", this->Join(", ", this->operation_mode_state).c_str());
         }
 
         // ----------------------------------
